@@ -134,6 +134,35 @@
             background-color: white;
         }
 
+        /* 語素詳情：內容等比例微放大（配合加寬欄位）
+           倍率取「一般標註一屏可看完、不必捲動」的平衡點；
+           max-height 除以 scale，使視覺高度貼齊可用視窗。 */
+        :root {
+            --detail-scale: 1.1;
+        }
+        #explanation-sidebar > .section-header {
+            font-size: calc(11px * var(--detail-scale));
+            letter-spacing: calc(1px * var(--detail-scale));
+            margin-bottom: calc(0.75rem * var(--detail-scale) / 1.5);
+        }
+        #explanation-panel {
+            zoom: var(--detail-scale);
+            min-height: calc(180px / var(--detail-scale)) !important;
+            /* 預留標題列與 padding，避免一般內容需要捲動 */
+            max-height: calc((100vh - 8.5rem) / var(--detail-scale)) !important;
+            overflow-y: auto;
+        }
+        #explanation-panel .detail-surface-word {
+            line-height: 1.25;
+        }
+        #explanation-panel .furigana-input,
+        #explanation-panel .phonetic-input,
+        #explanation-panel .lemma-input,
+        #explanation-panel .translation-textarea,
+        #explanation-panel .explanation-textarea {
+            line-height: 1.55;
+        }
+
         /* 語素詳情：主標題語素（深綠色） */
         #explanation-panel .detail-surface-word {
             color: #166534;
@@ -1338,7 +1367,7 @@
                 min-height: 2.5rem;
             }
 
-            body.mobile-layout .app-nav .max-w-7xl {
+            body.mobile-layout .app-nav > div {
                 padding-left: 1rem;
                 padding-right: 1rem;
             }
@@ -1457,7 +1486,7 @@
 <body class="bg-[#0F0F14] text-slate-200">
     <!-- Top Navigation — V1.0 Glassmorphism -->
     <nav class="app-nav sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-8">
+        <div class="w-full px-6 lg:px-8">
             <div class="flex items-center justify-between h-16">
                 <!-- Left: Refined logo + title -->
                 <div class="flex items-center gap-x-3">
@@ -1491,7 +1520,7 @@
     </nav>
 
     <!-- Bookshelf View -->
-    <div id="bookshelf-view" class="max-w-7xl mx-auto px-8 py-10">
+    <div id="bookshelf-view" class="w-full px-6 lg:px-8 py-10">
         <!-- V1.0: Centered search + language pills -->
         <div class="max-w-2xl mx-auto mb-10">
             <div class="bookshelf-search-wrap">
@@ -1506,7 +1535,7 @@
             </div>
         </div>
 
-        <div id="books-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+        <div id="books-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-8">
             <!-- Populated by JS -->
         </div>
 
@@ -1533,7 +1562,7 @@
     </div>
 
     <!-- Editor View -->
-    <div id="editor-view" class="hidden max-w-7xl mx-auto px-8 py-8">
+    <div id="editor-view" class="hidden w-full px-6 lg:px-8 py-8">
         <div id="editor-header" class="flex items-center justify-between mb-6">
             <div id="editor-header-left" class="flex items-center gap-x-4">
                 <button onclick="backToBookshelf()"
@@ -1665,7 +1694,7 @@
                 </div>
 
                 <!-- 語素詳情 - Right Sidebar -->
-                <div id="explanation-sidebar" class="w-[360px] flex-shrink-0 bg-white border border-slate-200 rounded-3xl p-6 sticky top-20 self-start z-10">
+                <div id="explanation-sidebar" class="w-[720px] flex-shrink-0 bg-white border border-slate-200 rounded-3xl p-6 sticky top-20 self-start z-10">
                     <div class="section-header mb-3 flex items-center gap-x-2">
                         <span>語素詳情</span>
                     </div>
@@ -1697,7 +1726,7 @@
     </div>
 
     <!-- Dictionary View -->
-    <div id="dictionary-view" class="hidden max-w-6xl mx-auto px-8 py-10">
+    <div id="dictionary-view" class="hidden w-full px-6 lg:px-8 py-10">
         <div class="flex items-end justify-between mb-6">
             <div>
                 <h1 class="text-4xl font-semibold tracking-tighter elegant">詞典</h1>
