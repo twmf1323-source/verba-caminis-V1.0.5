@@ -163,6 +163,26 @@
             line-height: 1.55;
         }
 
+        /* iPad / tablet：語素詳情還原為原本大小（現在桌面寬的一半 = 360px，scale 1）
+           - 寬度 ≤1024：一般平板直/橫
+           - 寬度 ≤1366 且為觸控裝置：涵蓋 iPad Pro 橫向（桌面滑鼠裝置不受影響） */
+        @media (max-width: 1024px),
+               ((max-width: 1366px) and (hover: none) and (pointer: coarse)) {
+            #explanation-sidebar {
+                width: 360px !important;
+            }
+            #explanation-sidebar > .section-header {
+                font-size: 11px !important;
+                letter-spacing: 1px !important;
+                margin-bottom: 0.75rem !important;
+            }
+            #explanation-panel {
+                zoom: 1 !important;
+                min-height: 180px !important;
+                max-height: calc(100vh - 6rem) !important;
+            }
+        }
+
         /* 語素詳情：主標題語素（深綠色） */
         #explanation-panel .detail-surface-word {
             color: #166534;
@@ -1473,6 +1493,83 @@
             overflow-y: auto;
             padding: 1rem 1rem 1.25rem;
             -webkit-overflow-scrolling: touch;
+        }
+
+        /* 詳情內容預設單欄（桌面側欄 / 手機直向）：標題/讀音 → 翻譯/解釋 → 詞性/操作 */
+        .detail-layout {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+        .detail-col-primary,
+        .detail-col-secondary,
+        .detail-col-footer {
+            min-width: 0;
+        }
+
+        /* 手機橫屏：左右兩欄，翻譯/解釋移到右側空白，減少往下捲 */
+        @media (orientation: landscape) and (max-height: 560px) {
+            .mobile-sheet-panel {
+                max-height: min(94vh, 100%);
+                left: 0.75rem;
+                right: 0.75rem;
+                bottom: 0.5rem;
+                border-radius: 1.25rem;
+                padding-bottom: env(safe-area-inset-bottom, 0px);
+            }
+            #mobile-explanation-panel {
+                padding: 0.65rem 0.85rem 0.85rem;
+                overflow-y: auto;
+            }
+            #mobile-explanation-panel .detail-layout {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+                grid-template-areas:
+                    "primary secondary"
+                    "footer  secondary";
+                column-gap: 1.15rem;
+                row-gap: 0.4rem;
+                align-items: start;
+            }
+            #mobile-explanation-panel .detail-col-primary { grid-area: primary; }
+            #mobile-explanation-panel .detail-col-secondary { grid-area: secondary; }
+            #mobile-explanation-panel .detail-col-footer { grid-area: footer; }
+
+            /* 右側欄頂部對齊 */
+            #mobile-explanation-panel .detail-col-secondary > .detail-field-translation {
+                margin-top: 0;
+            }
+            #mobile-explanation-panel .detail-col-secondary > .detail-field-explanation {
+                margin-top: 0.65rem;
+            }
+            #mobile-explanation-panel .detail-surface-word {
+                font-size: 1.5rem;
+                line-height: 1.25;
+            }
+            #mobile-explanation-panel .detail-col-footer .detail-dict-link {
+                margin-top: 0.35rem;
+            }
+            #mobile-explanation-panel .detail-pos-block {
+                margin-top: 0.55rem;
+            }
+            #mobile-explanation-panel .furigana-input,
+            #mobile-explanation-panel .phonetic-input,
+            #mobile-explanation-panel .lemma-input {
+                padding-top: 0.4rem;
+                padding-bottom: 0.4rem;
+            }
+            #mobile-explanation-panel .translation-textarea,
+            #mobile-explanation-panel .explanation-textarea {
+                min-height: 2.5rem !important;
+                max-height: min(28vh, 7.5rem);
+                overflow-y: auto !important;
+            }
+            .mobile-sheet-header {
+                padding: 0.35rem 0.85rem 0.5rem;
+            }
+            .mobile-sheet-handle {
+                margin-top: 0.45rem;
+            }
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -5249,122 +5346,128 @@ grant select, insert, update, delete on public.${SB_TABLE} to anon;
             const isJaWithLemma = (currentBook && currentBook.language === 'ja' && lookupForm !== toJaDictLookupQuery(surface));
 
             return `
-                <div>
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-x-1.5">
-                            ${(currentBook && currentBook.language === 'ja') ? 
-                                `<a href="https://www.sigure.tw/dict/jp/${encodeURIComponent(lookupForm)}" target="_blank" rel="noopener noreferrer" class="detail-surface-word text-3xl font-semibold tracking-tight hover:underline" title="${isJaWithLemma ? '跳轉至字典原型「' + lookupForm + '」' : ''}">${surface}</a>` : 
-                                `<div class="detail-surface-word text-3xl font-semibold tracking-tight">${surface}</div>`}
-                            ${token && token.annotation && token.annotation._userCustomized ? 
-                                `<span class="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded-full whitespace-nowrap">此處專屬</span>` : ''}
-                            ${isPanelLocked && surface === lockedWord ? 
-                                `<div class="text-[10px] px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full whitespace-nowrap">已鎖定</div>` : ''}
+                <div class="detail-layout">
+                    <div class="detail-col-primary">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-x-1.5">
+                                ${(currentBook && currentBook.language === 'ja') ? 
+                                    `<a href="https://www.sigure.tw/dict/jp/${encodeURIComponent(lookupForm)}" target="_blank" rel="noopener noreferrer" class="detail-surface-word text-3xl font-semibold tracking-tight hover:underline" title="${isJaWithLemma ? '跳轉至字典原型「' + lookupForm + '」' : ''}">${surface}</a>` : 
+                                    `<div class="detail-surface-word text-3xl font-semibold tracking-tight">${surface}</div>`}
+                                ${token && token.annotation && token.annotation._userCustomized ? 
+                                    `<span class="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded-full whitespace-nowrap">此處專屬</span>` : ''}
+                                ${isPanelLocked && surface === lockedWord ? 
+                                    `<div class="text-[10px] px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full whitespace-nowrap">已鎖定</div>` : ''}
+                            </div>
                         </div>
-                    </div>
 
-                    ${currentBook.language === 'ja' ? `
-                    <div class="mt-3">
-                        <div class="flex items-center gap-x-2 mb-1">
-                            <div class="info-label uppercase tracking-widest text-slate-500">平假名 / 讀音</div>
-                            ${ann.furigana ? 
-                                `<span class="info-value font-medium text-[#069494] tracking-wider">${ann.furigana}</span>` : 
-                                `<span class="info-value-sm text-slate-400">（尚未標註）</span>`}
-                        </div>
-                        <input type="text" value="${ann.furigana || ''}" 
-                               class="furigana-input w-full text-sm bg-white border border-slate-200 focus:border-[#069494] rounded-2xl px-4 py-2 tracking-wider"
-                               placeholder="例：うた  或  かし">
-                    </div>` : ''}
-
-                    ${currentBook.language === 'fr' ? `
-                    <div class="mt-3">
-                        <div class="flex items-center gap-x-2 mb-1">
-                            <div class="info-label uppercase tracking-widest text-slate-500">音標 / Phonetic (IPA)</div>
-                            ${ann.phonetic ? 
-                                `<span class="info-value font-medium text-[#069494] tracking-wider">${ann.phonetic}</span>` : 
-                                `<span class="info-value-sm text-slate-400">（尚未標註）</span>`}
-                        </div>
-                        <input type="text" value="${ann.phonetic || ''}" 
-                               class="phonetic-input w-full text-sm bg-white border border-slate-200 focus:border-[#069494] rounded-2xl px-4 py-2 tracking-wider font-mono"
-                               placeholder="例：ʃɑ̃.te 或 /ʒə ʃɑ̃t/">
-                        <div class="mt-2">
-                            <div class="info-label uppercase tracking-widest text-slate-500 mb-0.5">原形 (lemma) — 字典形式，建議填寫</div>
-                            <input type="text" value="${ann.lemma || ''}" 
-                                   class="lemma-input w-full text-sm bg-white border border-slate-200 focus:border-[#069494] rounded-2xl px-4 py-1.5 font-mono tracking-wider"
-                                   placeholder="例：chanter（動詞原形） / beau（陽性單數形容詞） / le（限定詞原形）">
-                            ${ann.inflection ? `
-                            <div class="mt-1 info-value-10 text-slate-400 leading-snug">
-                                舊有「變化規則」資料（已建議併入下方解釋欄）：${ann.inflection}
-                            </div>` : ''}
-                        </div>
-                    </div>` : ''}
-
-                    ${isPanelLocked && surface === lockedWord ? 
-                        `<div class="text-xs text-emerald-600 bg-emerald-50 px-2 py-1 rounded mb-2">
-                            此語素已鎖定<br>
-                            點擊相同語素可解鎖
+                        ${currentBook.language === 'ja' ? `
+                        <div class="mt-3">
+                            <div class="flex items-center gap-x-2 mb-1">
+                                <div class="info-label uppercase tracking-widest text-slate-500">平假名 / 讀音</div>
+                                ${ann.furigana ? 
+                                    `<span class="info-value font-medium text-[#069494] tracking-wider">${ann.furigana}</span>` : 
+                                    `<span class="info-value-sm text-slate-400">（尚未標註）</span>`}
+                            </div>
+                            <input type="text" value="${ann.furigana || ''}" 
+                                   class="furigana-input w-full text-sm bg-white border border-slate-200 focus:border-[#069494] rounded-2xl px-4 py-2 tracking-wider"
+                                   placeholder="例：うた  或  かし">
                         </div>` : ''}
 
-                    <div class="mt-2">
-                        <div class="info-label uppercase tracking-widest text-slate-500 mb-1">翻譯</div>
-                        <textarea data-surface="${surface}" class="translation-textarea w-full bg-[#FFF5E6] border border-slate-200 focus:border-[#069494] rounded-2xl px-4 py-2 text-sm leading-relaxed"
-                            placeholder="這個語素的翻譯（例如歌詞的自然翻譯）...">${translation}</textarea>
+                        ${currentBook.language === 'fr' ? `
+                        <div class="mt-3">
+                            <div class="flex items-center gap-x-2 mb-1">
+                                <div class="info-label uppercase tracking-widest text-slate-500">音標 / Phonetic (IPA)</div>
+                                ${ann.phonetic ? 
+                                    `<span class="info-value font-medium text-[#069494] tracking-wider">${ann.phonetic}</span>` : 
+                                    `<span class="info-value-sm text-slate-400">（尚未標註）</span>`}
+                            </div>
+                            <input type="text" value="${ann.phonetic || ''}" 
+                                   class="phonetic-input w-full text-sm bg-white border border-slate-200 focus:border-[#069494] rounded-2xl px-4 py-2 tracking-wider font-mono"
+                                   placeholder="例：ʃɑ̃.te 或 /ʒə ʃɑ̃t/">
+                            <div class="mt-2">
+                                <div class="info-label uppercase tracking-widest text-slate-500 mb-0.5">原形 (lemma) — 字典形式，建議填寫</div>
+                                <input type="text" value="${ann.lemma || ''}" 
+                                       class="lemma-input w-full text-sm bg-white border border-slate-200 focus:border-[#069494] rounded-2xl px-4 py-1.5 font-mono tracking-wider"
+                                       placeholder="例：chanter（動詞原形） / beau（陽性單數形容詞） / le（限定詞原形）">
+                                ${ann.inflection ? `
+                                <div class="mt-1 info-value-10 text-slate-400 leading-snug">
+                                    舊有「變化規則」資料（已建議併入下方解釋欄）：${ann.inflection}
+                                </div>` : ''}
+                            </div>
+                        </div>` : ''}
+
+                        ${isPanelLocked && surface === lockedWord ? 
+                            `<div class="text-xs text-emerald-600 bg-emerald-50 px-2 py-1 rounded mb-2 mt-2">
+                                此語素已鎖定<br>
+                                點擊相同語素可解鎖
+                            </div>` : ''}
                     </div>
 
-                    <div class="mt-3">
-                        <div class="info-label uppercase tracking-widest text-slate-500 mb-1">解釋</div>
-                        <textarea data-surface="${surface}" class="explanation-textarea w-full bg-[#FFF5E6] border border-slate-200 focus:border-[#069494] rounded-2xl px-4 py-2 text-sm leading-relaxed"
-                            placeholder="更深入的語感說明、用法、情感等...">${explanation}</textarea>
-                    </div>
+                    <div class="detail-col-secondary">
+                        <div class="mt-2 detail-field-translation">
+                            <div class="info-label uppercase tracking-widest text-slate-500 mb-1">翻譯</div>
+                            <textarea data-surface="${surface}" class="translation-textarea w-full bg-[#FFF5E6] border border-slate-200 focus:border-[#069494] rounded-2xl px-4 py-2 text-sm leading-relaxed"
+                                placeholder="這個語素的翻譯（例如歌詞的自然翻譯）...">${translation}</textarea>
+                        </div>
 
-                    ${(currentBook && currentBook.language === 'ja') ? `
-                    <div class="mt-2">
-                        <a href="https://www.sigure.tw/dict/jp/${encodeURIComponent(lookupForm)}" 
-                           target="_blank" rel="noopener noreferrer"
-                           class="inline-flex items-center gap-x-1.5 text-xs px-3 py-1.5 rounded-xl border border-sky-200 bg-sky-50 hover:bg-sky-100 active:bg-sky-200 text-sky-700 transition-all hover:scale-[1.01]">
-                            <i class="fa-solid fa-search"></i>
-                            <span>查詢該語素</span>
-                            <i class="fa-solid fa-external-link-alt text-[10px] opacity-70"></i>
-                        </a>
-                        <div class="text-[9px] text-slate-400 mt-0.5">${isJaWithLemma 
-                            ? `使用解釋欄中的原型「${lookupForm}」進行查詢（新分頁）` 
-                            : '開啟 sigure.tw 字典頁面（新分頁）'}</div>
-                    </div>` : ''}
-
-                    <div class="mt-4">
-                        <div class="text-xs uppercase tracking-widest text-slate-500 mb-1.5">詞性</div>
-                        <div class="flex flex-wrap gap-1.5">
-                            ${getPOSOptionsForBook().map(pos => {
-                                const c = POS_COLORS[pos] || { bg: "#C0CCD8", text: "#1F2937", border: "#A0B0C0" };
-                                const selected = ann.pos === pos;
-                                const style = selected 
-                                    ? `background-color:${c.bg}; color:${c.text}; border-color:${c.border}; border-width:1px; border-style:solid;` 
-                                    : `border-color:#cbd5e1;`;
-                                return `<button onclick="setPos('${surface}', '${pos}', this)" 
-                                    class="btn btn-sm text-xs px-3 py-1 rounded-full border transition-all hover:scale-[1.03]"
-                                    style="${style}">${pos}</button>`;
-                            }).join('')}
+                        <div class="mt-3 detail-field-explanation">
+                            <div class="info-label uppercase tracking-widest text-slate-500 mb-1">解釋</div>
+                            <textarea data-surface="${surface}" class="explanation-textarea w-full bg-[#FFF5E6] border border-slate-200 focus:border-[#069494] rounded-2xl px-4 py-2 text-sm leading-relaxed"
+                                placeholder="更深入的語感說明、用法、情感等...">${explanation}</textarea>
                         </div>
                     </div>
 
-                    <div class="mt-2">
-                        <button onclick="addNewMorphemeMeaning('${surface}', this)" 
-                                class="btn btn-secondary text-xs px-3 py-1 w-full text-left border-teal-200 bg-teal-50 hover:bg-teal-100 text-teal-700">
-                            <i class="fa-solid fa-plus text-xs mr-1"></i>新增語素意思
-                        </button>
-                        <div class="text-[9px] text-slate-400 mt-0.5">此修改只影響目前點擊的這個位置，其他相同文字的語素不受影響。</div>
-                    </div>
+                    <div class="detail-col-footer">
+                        ${(currentBook && currentBook.language === 'ja') ? `
+                        <div class="mt-2 detail-dict-link">
+                            <a href="https://www.sigure.tw/dict/jp/${encodeURIComponent(lookupForm)}" 
+                               target="_blank" rel="noopener noreferrer"
+                               class="inline-flex items-center gap-x-1.5 text-xs px-3 py-1.5 rounded-xl border border-sky-200 bg-sky-50 hover:bg-sky-100 active:bg-sky-200 text-sky-700 transition-all hover:scale-[1.01]">
+                                <i class="fa-solid fa-search"></i>
+                                <span>查詢該語素</span>
+                                <i class="fa-solid fa-external-link-alt text-[10px] opacity-70"></i>
+                            </a>
+                            <div class="text-[9px] text-slate-400 mt-0.5">${isJaWithLemma 
+                                ? `使用解釋欄中的原型「${lookupForm}」進行查詢（新分頁）` 
+                                : '開啟 sigure.tw 字典頁面（新分頁）'}</div>
+                        </div>` : ''}
 
-                    ${token && token.annotation ? `
-                    <div class="mt-1 flex flex-wrap gap-1 text-[9px]">
-                        <button onclick="promoteCurrentLocalToGlobal('${surface}')" 
-                                class="btn btn-secondary btn-sm px-1.5 py-0.5 border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700">
-                            套用此詳情到所有
-                        </button>
-                        <button onclick="clearLocalAnnotationForCurrent('${surface}')" 
-                                class="btn btn-ghost btn-sm px-1.5 py-0.5 border-slate-200 hover:bg-slate-100 text-slate-600">
-                            清除專屬設定
-                        </button>
-                    </div>` : ''}
+                        <div class="mt-4 detail-pos-block">
+                            <div class="text-xs uppercase tracking-widest text-slate-500 mb-1.5">詞性</div>
+                            <div class="flex flex-wrap gap-1.5">
+                                ${getPOSOptionsForBook().map(pos => {
+                                    const c = POS_COLORS[pos] || { bg: "#C0CCD8", text: "#1F2937", border: "#A0B0C0" };
+                                    const selected = ann.pos === pos;
+                                    const style = selected 
+                                        ? `background-color:${c.bg}; color:${c.text}; border-color:${c.border}; border-width:1px; border-style:solid;` 
+                                        : `border-color:#cbd5e1;`;
+                                    return `<button onclick="setPos('${surface}', '${pos}', this)" 
+                                        class="btn btn-sm text-xs px-3 py-1 rounded-full border transition-all hover:scale-[1.03]"
+                                        style="${style}">${pos}</button>`;
+                                }).join('')}
+                            </div>
+                        </div>
+
+                        <div class="mt-2 detail-actions-block">
+                            <button onclick="addNewMorphemeMeaning('${surface}', this)" 
+                                    class="btn btn-secondary text-xs px-3 py-1 w-full text-left border-teal-200 bg-teal-50 hover:bg-teal-100 text-teal-700">
+                                <i class="fa-solid fa-plus text-xs mr-1"></i>新增語素意思
+                            </button>
+                            <div class="text-[9px] text-slate-400 mt-0.5">此修改只影響目前點擊的這個位置，其他相同文字的語素不受影響。</div>
+                        </div>
+
+                        ${token && token.annotation ? `
+                        <div class="mt-1 flex flex-wrap gap-1 text-[9px] detail-local-actions">
+                            <button onclick="promoteCurrentLocalToGlobal('${surface}')" 
+                                    class="btn btn-secondary btn-sm px-1.5 py-0.5 border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700">
+                                套用此詳情到所有
+                            </button>
+                            <button onclick="clearLocalAnnotationForCurrent('${surface}')" 
+                                    class="btn btn-ghost btn-sm px-1.5 py-0.5 border-slate-200 hover:bg-slate-100 text-slate-600">
+                                清除專屬設定
+                            </button>
+                        </div>` : ''}
+                    </div>
                 </div>
             `;
         }
