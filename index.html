@@ -1945,6 +1945,8 @@
         const AI_API_KEY_KEY = 'verba_ai_api_key';
         const AI_BASE_URL_KEY = 'verba_ai_base_url';
         const AI_MODEL_KEY = 'verba_ai_model';
+        /** 串流分析：解釋深度 'simple' | 'detailed' */
+        const AI_EXPLAIN_STYLE_KEY = 'verba_ai_explain_style';
         const SB_URL_KEY = 'verba_supabase_url';
         const SB_ANON_KEY = 'verba_supabase_anon_key';
         const SB_SYNC_ID_KEY = 'verba_supabase_sync_id';
@@ -7762,13 +7764,35 @@ ${lyricsForPrompt}
             return { tokens: [], mode: 'jsonl' };
         }
 
+        function getAIExplainStyle() {
+            const v = localStorage.getItem(AI_EXPLAIN_STYLE_KEY);
+            return v === 'detailed' ? 'detailed' : 'simple';
+        }
+
+        function setAIExplainStyle(style) {
+            const v = style === 'detailed' ? 'detailed' : 'simple';
+            localStorage.setItem(AI_EXPLAIN_STYLE_KEY, v);
+            return v;
+        }
+
+        function readAIExplainStyleFromModal() {
+            const checked = document.querySelector('input[name="ai-live-explain-style"]:checked');
+            const style = checked && checked.value === 'detailed' ? 'detailed' : 'simple';
+            return setAIExplainStyle(style);
+        }
+
         /**
          * 一鍵專用短提示詞：JSONL + 單字母欄位（不走完整 buildAIPrompt）
+         * @param {{ lyrics?: string, lineOffset?: number, forceLineMarks?: boolean, chunkNote?: string, explainStyle?: 'simple'|'detailed' }} [opts]
          */
         function buildAILivePrompt(opts) {
             opts = opts || {};
             const lang = (currentBook && currentBook.language) || 'ja';
             const lineOffset = Math.max(0, Number(opts.lineOffset) || 0);
+            const explainStyle = (opts.explainStyle === 'detailed' || opts.explainStyle === 'simple')
+                ? opts.explainStyle
+                : getAIExplainStyle();
+            const isDetailed = explainStyle === 'detailed';
 
             let lyrics = '';
             if (opts.lyrics != null) lyrics = String(opts.lyrics);
@@ -7787,33 +7811,59 @@ ${lyricsForPrompt}
             let posList = '助詞,名詞,動詞,助動詞,形容詞,副詞,感動詞,連體詞,接續詞,其他';
             let langName = '日語';
             let extraFields = 'F=平假名讀音（必填）';
-            // E=explanation 必填：辭源/固定表達/活用等（精簡但仍要有內容）
-            let eRule = 'E=解釋（必填，≤80字）：名詞寫辭源；助詞寫固定句型；動詞寫原形+活用種類；其他寫語感/用法';
-            let examples = `{"S":"君","F":"きみ","M":"你","P":"名詞","L":${lineOffset + 1},"E":"和語。歌詞中指對方，帶親密感"}
-{"S":"の","F":"の","M":"的","P":"助詞","L":${lineOffset + 1},"E":"連體修飾。固定：〜の中で／〜のような"}
-{"S":"名","F":"な","M":"名字","P":"名詞","L":${lineOffset + 1},"E":"漢語「名」。常與「を呼ぶ」搭配"}`;
+            let eRule;
+            let examples;
+
+            if (isDetailed) {
+                eRule = 'E=詳盡解釋（必填，約20–40字）：須含字源／辭源補充或文法用法（助詞句型、動詞原形+活用等）；勿灌水、勿與 M 重複';
+                examples = `{"S":"君","F":"きみ","M":"你","P":"名詞","L":${lineOffset + 1},"E":"和語二人稱。歌詞中指對方，帶親密或傾訴感"}
+{"S":"の","F":"の","M":"的","P":"助詞","L":${lineOffset + 1},"E":"連體修飾格助詞。固定：〜の中で／〜のような"}
+{"S":"名","F":"な","M":"名字","P":"名詞","L":${lineOffset + 1},"E":"漢語「名」。常搭配「を呼ぶ」，表稱名呼喚"}`;
+            } else {
+                eRule = 'E=簡易解釋（必填，≤15字）：一句話補足用法或語感即可；不要辭源長文、不要羅列多個固定句型';
+                examples = `{"S":"君","F":"きみ","M":"你","P":"名詞","L":${lineOffset + 1},"E":"指對方，語氣較親"}
+{"S":"の","F":"の","M":"的","P":"助詞","L":${lineOffset + 1},"E":"連接修飾關係"}
+{"S":"名","F":"な","M":"名字","P":"名詞","L":${lineOffset + 1},"E":"姓名、稱呼"}`;
+            }
 
             if (lang === 'ko') {
                 langName = '韓語';
                 posList = '名詞,動詞,形容詞,冠形詞,副詞,助詞,感嘆詞,接續詞,其他';
                 extraFields = 'F可省略';
-                eRule = 'E=解釋（必填，≤80字）：名詞寫辭源(漢字/固有/外來)；助詞寫格/話題功能與常見搭配；動詞寫原形+語尾';
-                examples = `{"S":"사랑","M":"愛","P":"名詞","L":${lineOffset + 1},"E":"固有語。歌詞高頻，表情感"}
-{"S":"을","M":"賓格","P":"助詞","L":${lineOffset + 1},"E":"目的格。母音後用를、子音後을"}`;
+                if (isDetailed) {
+                    eRule = 'E=詳盡解釋（必填，約20–40字）：名詞寫辭源(漢字/固有/外來)；助詞寫格/話題功能與常見搭配；動詞寫原形+語尾；勿與 M 重複';
+                    examples = `{"S":"사랑","M":"愛","P":"名詞","L":${lineOffset + 1},"E":"固有語。歌詞高頻，表情感與依戀"}
+{"S":"을","M":"賓格","P":"助詞","L":${lineOffset + 1},"E":"目的格助詞。母音後를、子音後을"}`;
+                } else {
+                    eRule = 'E=簡易解釋（必填，≤15字）：一句話說明功能或語感；不要長辭源';
+                    examples = `{"S":"사랑","M":"愛","P":"名詞","L":${lineOffset + 1},"E":"情感、愛情"}
+{"S":"을","M":"賓格","P":"助詞","L":${lineOffset + 1},"E":"標示賓語"}`;
+                }
             } else if (lang === 'fr') {
                 langName = '法語';
                 posList = '名詞,限定詞,形容詞,代詞,動詞,副詞,介詞,連接詞,感嘆詞,其他';
                 extraFields = 'H=IPA音標 B=原形 I=變化規則（皆宜短、必填）';
-                eRule = 'E=解釋（必填，≤80字）：文法細節+歌詞語感；動詞可再對照 B/I';
-                examples = `{"S":"je","H":"ʒə","B":"je","I":"主格","M":"我","P":"代詞","L":${lineOffset + 1},"E":"人稱代詞主格，歌詞口語常省略後續"}
-{"S":"t'aime","H":"tɛm","B":"aimer","I":"1sg現在+t'","M":"愛你","P":"動詞","L":${lineOffset + 1},"E":"aimer 現在式；t'為 te 在母音前省略"}`;
+                if (isDetailed) {
+                    eRule = 'E=詳盡解釋（必填，約20–40字）：文法細節（性數、縮合、活用）+ 歌詞語感；動詞可再對照 B/I；勿與 M 重複';
+                    examples = `{"S":"je","H":"ʒə","B":"je","I":"主格","M":"我","P":"代詞","L":${lineOffset + 1},"E":"人稱代詞主格；歌詞口語常省略後續動詞主語重複"}
+{"S":"t'aime","H":"tɛm","B":"aimer","I":"1sg現在+t'","M":"愛你","P":"動詞","L":${lineOffset + 1},"E":"aimer 現在式第一人稱；t'為 te 在母音前省略"}`;
+                } else {
+                    eRule = 'E=簡易解釋（必填，≤15字）：一句話補足用法；詳細變化放 B/I，E 勿長篇';
+                    examples = `{"S":"je","H":"ʒə","B":"je","I":"主格","M":"我","P":"代詞","L":${lineOffset + 1},"E":"主語「我」"}
+{"S":"t'aime","H":"tɛm","B":"aimer","I":"1sg現在+t'","M":"愛你","P":"動詞","L":${lineOffset + 1},"E":"愛 + 賓語 te"}`;
+                }
             }
 
             const chunkNote = opts.chunkNote
                 ? `\n【分段】${opts.chunkNote}\n`
                 : '';
 
+            const styleLine = isDetailed
+                ? '【解釋深度：詳盡】E 約 20–40 字，須有字源或文法用法補充。'
+                : '【解釋深度：簡易】E ≤15 字，只寫最核心用法／語感。';
+
             return `你是${langName}歌詞語素分析器。只輸出 JSONL（每行一個 JSON 物件），禁止 markdown、禁止陣列外殼、禁止前言後語。
+${styleLine}
 
 欄位（單字母，勿用完整英文 key）：
 - S=表面形（必填）
@@ -7830,6 +7880,7 @@ ${lyricsForPrompt}
 4. 日語複合動詞要拆開（鳴り+止む）。
 5. 空白行可略過不輸出。
 6. M 短、E 補細節；兩者不要重複貼同一句。
+7. 嚴格遵守上方「解釋深度」對 E 的字數與內容要求。
 ${chunkNote}
 範例格式：
 ${examples}
@@ -7940,6 +7991,29 @@ ${marked}`;
                             <span class="text-[11px] text-slate-400">目前歌詞約 ${lyricsLen} 字${lyricsLen ? '' : '（尚未填寫 — 請先貼上原始歌詞）'}</span>
                         </div>
 
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
+                            <div class="text-xs font-semibold text-slate-600 mb-1.5 flex items-center gap-x-1.5">
+                                <i class="fa-solid fa-book-open text-teal-600"></i>
+                                <span>解釋深度（寫入「解釋」欄）</span>
+                            </div>
+                            <div class="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-x-5 text-xs">
+                                <label class="flex items-start gap-x-2 cursor-pointer">
+                                    <input type="radio" name="ai-live-explain-style" value="simple" class="accent-teal-600 mt-0.5" checked>
+                                    <span>
+                                        <span class="font-medium text-slate-800">簡易解釋</span>
+                                        <span class="block text-[11px] text-slate-500 mt-0.5">一句話補足用法／語感（約 ≤15 字），不寫長辭源</span>
+                                    </span>
+                                </label>
+                                <label class="flex items-start gap-x-2 cursor-pointer">
+                                    <input type="radio" name="ai-live-explain-style" value="detailed" class="accent-teal-600 mt-0.5">
+                                    <span>
+                                        <span class="font-medium text-slate-800">詳盡解釋</span>
+                                        <span class="block text-[11px] text-slate-500 mt-0.5">含字源補充或文法用法（約 20–40 字）</span>
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
+
                         <div>
                             <div class="flex items-center justify-between mb-1.5">
                                 <div class="text-xs font-semibold text-slate-600">串流輸出預覽</div>
@@ -7992,6 +8066,14 @@ ${marked}`;
             if (keyEl) keyEl.value = settings.apiKey || '';
             if (baseEl) baseEl.value = settings.baseUrl || AI_DEFAULT_BASE;
             if (modelEl) modelEl.value = settings.model || AI_DEFAULT_MODEL;
+            const savedStyle = getAIExplainStyle();
+            const styleRadio = document.querySelector(`input[name="ai-live-explain-style"][value="${savedStyle}"]`);
+            if (styleRadio) styleRadio.checked = true;
+            document.querySelectorAll('input[name="ai-live-explain-style"]').forEach((el) => {
+                el.addEventListener('change', () => {
+                    if (el.checked) setAIExplainStyle(el.value);
+                });
+            });
         }
 
         function closeAILiveModal() {
@@ -8074,9 +8156,13 @@ ${marked}`;
             const controller = new AbortController();
             _aiStreamAbort = controller;
 
+            const explainStyle = readAIExplainStyleFromModal();
+            const eDepthHint = explainStyle === 'detailed'
+                ? 'E 為詳盡解釋（約20–40字，含字源或文法用法）。'
+                : 'E 為簡易解釋（≤15字，一句話用法／語感）。';
             const systemMsg = {
                 role: 'system',
-                content: '你是語素分析引擎。只輸出 JSONL：每行一個 JSON 物件。鍵名必須用單字母 S/M/P/L/F/E/H/B/I（禁止 surface、meaning 等完整英文 key）。每個物件必須含非空的 E（explanation 解釋）。禁止 markdown、禁止外層陣列或 verbaCarminisImport 大包。不要前言或結尾。'
+                content: `你是語素分析引擎。只輸出 JSONL：每行一個 JSON 物件。鍵名必須用單字母 S/M/P/L/F/E/H/B/I（禁止 surface、meaning 等完整英文 key）。每個物件必須含非空的 E（explanation 解釋）。${eDepthHint}禁止 markdown、禁止外層陣列或 verbaCarminisImport 大包。不要前言或結尾。`
             };
 
             const allLines = lyrics.split(/\r?\n/);
@@ -8112,6 +8198,7 @@ ${marked}`;
                 const allTokens = [];
                 let truncatedHint = false;
                 let previewLog = '';
+                const styleLabel = explainStyle === 'detailed' ? '詳盡' : '簡易';
 
                 // 若未勾選分段但仍很長，仍建議分段
                 if (!useChunk && allLines.length > AI_CHUNK_LINE_THRESHOLD) {
@@ -8119,8 +8206,8 @@ ${marked}`;
                 }
 
                 if (!useChunk) {
-                    const promptText = buildAILivePrompt({ forceLineMarks: true });
-                    const { text, finishReason } = await runOneStream(promptText, '整首 JSONL 分析', '', null);
+                    const promptText = buildAILivePrompt({ forceLineMarks: true, explainStyle });
+                    const { text, finishReason } = await runOneStream(promptText, `整首 JSONL 分析（${styleLabel}解釋）`, '', null);
                     if (outEl && !outEl.textContent) outEl.textContent = text;
                     previewLog = text;
 
@@ -8158,6 +8245,7 @@ ${marked}`;
                             lyrics: chunkLyrics,
                             lineOffset: start,
                             forceLineMarks: true,
+                            explainStyle,
                             chunkNote: `第 ${ci + 1}/${chunks.length} 段，只分析 L${start + 1}–L${end}，只輸出這些行的 JSONL。`
                         });
                         const label = `分段 ${ci + 1}/${chunks.length}（行 ${start + 1}–${end}）`;
